@@ -3,6 +3,7 @@
 
 local INSTALLER = shell.getRunningProgram()
 local INSTALLER_DIR = fs.getDir(INSTALLER)
+local RAW_URL = "https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/"
 
 local function quellpfad(name)
     if INSTALLER_DIR == "" then
@@ -35,11 +36,31 @@ local function leseDatei(pfad)
     return inhalt
 end
 
-local function kopiereDatei(von, nach)
-    if von == nach then
+local function ladeRepoDatei(name)
+    local lokal = quellpfad(name)
+    if fs.exists(lokal) then
+        return leseDatei(lokal)
+    end
+
+    if not http then
+        error("HTTP ist deaktiviert. Bitte http in der ComputerCraft-Konfiguration aktivieren.")
+    end
+
+    local antwort = http.get(RAW_URL .. name)
+    if not antwort then
+        error("Konnte " .. name .. " nicht von GitHub laden")
+    end
+
+    local inhalt = antwort.readAll()
+    antwort.close()
+    return inhalt
+end
+
+local function installiereRepoDatei(name, ziel)
+    if fs.exists(quellpfad(name)) and quellpfad(name) == ziel then
         return
     end
-    schreibeDatei(nach, leseDatei(von))
+    schreibeDatei(ziel, ladeRepoDatei(name))
 end
 
 local function frageText(label, standard)
@@ -89,7 +110,7 @@ local function schreibeConfig()
 end
 
 local function installiereTorSteuercomputer()
-    kopiereDatei(quellpfad("startup.lua"), "startup.lua")
+    installiereRepoDatei("startup.lua", "startup.lua")
     schreibeConfig()
 
     print()
@@ -98,7 +119,7 @@ local function installiereTorSteuercomputer()
 end
 
 local function installiereTaschencomputer()
-    kopiereDatei(quellpfad("tor.lua"), fs.combine("Bauwerk", "tor.lua"))
+    installiereRepoDatei("tor.lua", fs.combine("Bauwerk", "tor.lua"))
 
     print()
     print("Taschencomputer-Steuerung installiert.")
