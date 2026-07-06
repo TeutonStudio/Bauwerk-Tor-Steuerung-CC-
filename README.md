@@ -3,7 +3,7 @@
 Rednet-basierte Torsteuerung fuer Create/ComputerCraft:
 
 - `Tor-Steuercomputer`: steuert genau ein Tor ueber eine Sequenced Gearshift.
-- `Taschencomputer`: zeigt erreichbare Tore direkt als Liste und schaltet ein Tor per Nummernauswahl um.
+- `Taschencomputer`: zeigt zuerst Gebaeude, dann die Tore des Gebaeudes, und schaltet ein Tor per Nummernauswahl um.
 
 ## Installation
 
@@ -84,15 +84,30 @@ Start:
 Bauwerk/tor.lua
 ```
 
-Der Taschencomputer sucht per Rednet nach erreichbaren Tor-Steuercomputern und zeigt alle Tore direkt mit Zustand an:
+Der Taschencomputer sucht per Rednet nach erreichbaren Tor-Steuercomputern und zeigt zuerst die Gebaeudeauswahl:
 
 ```text
-=== Torsteuerung ===
+=== Gebaeudeauswahl ===
 
-1) 789,-968 [zu]
-2) 800,-970 [auf]
-3) minekolonie_west [unbekannt]
+1) Rathaus
+2) Bahnhof Sued
 
+r) aktualisieren
+q) beenden
+
+Auswahl:
+```
+
+Nach Auswahl eines Gebaeudes werden dessen Tore mit Zustand angezeigt:
+
+```text
+=== Rathaus ===
+
+1) Eingang Nord [zu]
+2) Eingang Sued [auf]
+3) Kellerzugang [unbekannt]
+
+b) zurueck zu Gebaeuden
 r) aktualisieren
 q) beenden
 
@@ -101,22 +116,38 @@ Auswahl:
 
 Befehle:
 
-- Nummer: Tor direkt wechseln
-- `r`: Liste und Zustaende aktualisieren
+- Gebaeudeauswahl: Nummer oeffnet das Gebaeude
+- Torauswahl: Nummer wechselt das Tor direkt
+- `b`: zurueck zur Gebaeudeauswahl
+- `r`: aktuelle Ansicht aktualisieren
 - `q`: Programm beenden
 
-Es gibt kein Untermenue pro Tor mehr. Der Taschencomputer sendet keine Zielzustaende, keine Winkel und keine freien `auf`-/`zu`-Befehle.
+Es gibt kein Untermenue pro Tor. Der Taschencomputer sendet keine Zielzustaende, keine Winkel und keine freien `auf`-/`zu`-Befehle.
 
-Optional kann der Taschencomputer feste Tore aus `Bauwerk/tor_cfg.lua` laden:
+Optional kann der Taschencomputer feste Gebaeude und Tore aus `Bauwerk/tor_cfg.lua` laden:
 
 ```lua
 return {
     protokoll = "torsteuerung",
 
-    tore = {
-        "789,-968",
-        "800,-970",
-        "minekolonie_west",
+    gebaeude = {
+        {
+            id = "rathaus",
+            name = "Rathaus",
+            tore = {
+                { id = "rathaus_nord", name = "Eingang Nord" },
+                { id = "rathaus_sued", name = "Eingang Sued" },
+                { id = "rathaus_keller", name = "Kellerzugang" },
+            },
+        },
+        {
+            id = "bahnhof_sued",
+            name = "Bahnhof Sued",
+            tore = {
+                { id = "bahnhof_sued_tor_1", name = "Tor 1" },
+                { id = "bahnhof_sued_tor_2", name = "Tor 2" },
+            },
+        },
     },
 }
 ```
@@ -127,9 +158,15 @@ Falls Rednet-IDs fest bekannt sind:
 return {
     protokoll = "torsteuerung",
 
-    tore = {
-        { id = "789,-968", rednet_id = 12 },
-        { id = "800,-970", rednet_id = 15 },
+    gebaeude = {
+        {
+            id = "rathaus",
+            name = "Rathaus",
+            tore = {
+                { id = "rathaus_nord", name = "Eingang Nord", rednet_id = 12 },
+                { id = "rathaus_sued", name = "Eingang Sued", rednet_id = 15 },
+            },
+        },
     },
 }
 ```
