@@ -11,6 +11,11 @@ local cfg = dofile("cfg.lua")
 local PROTOKOLL = "torsteuerung"
 local TOR_ID = tostring(cfg.tor_id or cfg.tor or "tor")
 local ZUSTAND_DATEI = cfg.zustand_datei or ".tor_zustand"
+local WINKEL_AUF = tonumber(cfg.winkel_auf)
+
+if not WINKEL_AUF then
+    error("cfg.lua: winkel_auf fehlt oder ist keine Zahl!")
+end
 
 peripheral.find("modem", rednet.open)
 
@@ -83,6 +88,10 @@ local function ladeZustand()
             end
         end
     end
+    local initZustand = cfg.initZustand or cfg.init_zustand
+    if istGueltigerZustand(initZustand) then
+        return initZustand
+    end
     return "zu"
 end
 
@@ -100,6 +109,7 @@ local function speichereZustand(neuerZustand)
 end
 
 local zustand = ladeZustand()
+speichereZustand(zustand)
 
 -- Wartet, bis die Gangschaltung ihre aktuelle Drehung abgeschlossen hat
 local function wartenAufAbschluss(maxSekunden)
@@ -110,19 +120,19 @@ local function wartenAufAbschluss(maxSekunden)
 end
 
 local function oeffnen()
-    gangschaltung.rotate(cfg.winkel_auf)       -- vorwaerts um winkel_auf Grad
+    gangschaltung.rotate(WINKEL_AUF)           -- vorwaerts um winkel_auf Grad
     wartenAufAbschluss()
     zustand = "auf"
     speichereZustand(zustand)
-    print("Tor " .. tostring(cfg.tor) .. " geoeffnet (" .. tostring(cfg.winkel_auf) .. " Grad)")
+    print("Tor " .. tostring(cfg.tor) .. " geoeffnet (" .. tostring(WINKEL_AUF) .. " Grad)")
 end
 
 local function schliessen()
-    gangschaltung.rotate(cfg.winkel_zu, -1)    -- rueckwaerts um winkel_zu Grad
+    gangschaltung.rotate(-WINKEL_AUF)          -- rueckwaerts um winkel_auf Grad
     wartenAufAbschluss()
     zustand = "zu"
     speichereZustand(zustand)
-    print("Tor " .. tostring(cfg.tor) .. " geschlossen (" .. tostring(cfg.winkel_zu) .. " Grad)")
+    print("Tor " .. tostring(cfg.tor) .. " geschlossen (" .. tostring(-WINKEL_AUF) .. " Grad)")
 end
 
 local function wechseln()

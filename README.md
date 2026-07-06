@@ -38,9 +38,7 @@ Dabei wird `startup.lua` installiert und die lokale `cfg.lua` direkt abgefragt u
 - Gebaeude
 - Tor-Name/Kuerzel
 - Winkel zum Oeffnen
-- Winkel zum Schliessen
-- Optionale Tor-ID fuer den Taschencomputer
-- Optionaler Name der Sequenced Gearshift
+- Initialer Zustand (`auf` oder `zu`)
 
 Nach einem Neustart startet die Torsteuerung automatisch ueber `startup.lua`.
 
@@ -51,20 +49,20 @@ Die Sequenced Gearshift wird automatisch gesucht. Akzeptiert wird ein Peripheral
 Voraussetzungen:
 
 - Mindestens ein Modem am Computer oder im Wired Network.
-- Genau eine passende Sequenced Gearshift oder optional `gangschaltung_name` in `cfg.lua` bei mehreren passenden Peripherals.
+- Genau eine passende Sequenced Gearshift.
 
-Optionale Gearshift-Auswahl in `cfg.lua`:
+Beispiel fuer `cfg.lua`:
 
 ```lua
 return {
     gebaeude = "Zugfabrik1",
     tor = "VR",
-    tor_id = "789,-968",
     winkel_auf = 90,
-    winkel_zu = 90,
-    gangschaltung_name = "right",
+    initZustand = "zu",
 }
 ```
+
+Zum Schliessen wird automatisch `-winkel_auf` verwendet. Es gibt keinen separaten Schliesswinkel.
 
 Der Zustand des Tores wird auf dem Tor-Steuercomputer verwaltet und lokal gespeichert. Der Taschencomputer zeigt nur den Zustand an, den der Tor-Steuercomputer meldet.
 

@@ -6,7 +6,5 @@ return {
     gebaeude = "Zugfabrik1", -- Name des Gebaeudes (mehrere Tore koennen sich ein Gebaeude teilen)
     tor = "VR",              -- Name/Kuerzel dieses einzelnen Tores innerhalb des Gebaeudes
     winkel_auf = 90,         -- Grad, um die zum OEFFNEN gedreht wird
-    winkel_zu = 90,          -- Grad, um die zum SCHLIESSEN zurueckgedreht wird
-    -- tor_id = "789,-968", -- Optionaler Anzeigename fuer den Taschencomputer; sonst wird tor genutzt
-    -- gangschaltung_name = "right", -- Optional, falls mehrere passende Gearshifts vorhanden sind
+    initZustand = "zu",      -- Zustand beim ersten Start: "auf" oder "zu"
 }

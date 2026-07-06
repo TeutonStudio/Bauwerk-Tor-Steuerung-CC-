@@ -90,6 +90,16 @@ local function frageZahl(label, standard)
     end
 end
 
+local function frageZustand(label, standard)
+    while true do
+        local eingabe = frageText(label, standard)
+        if eingabe == "auf" or eingabe == "zu" then
+            return eingabe
+        end
+        print("Bitte 'auf' oder 'zu' eingeben.")
+    end
+end
+
 local function schreibeConfig()
     term.clear()
     term.setCursorPos(1, 1)
@@ -100,18 +110,8 @@ local function schreibeConfig()
         gebaeude = frageText("Gebaeude", "Zugfabrik1"),
         tor = frageText("Tor-Name/Kuerzel", "VR"),
         winkel_auf = frageZahl("Winkel zum Oeffnen", 90),
-        winkel_zu = frageZahl("Winkel zum Schliessen", 90),
+        initZustand = frageZustand("Initialer Zustand (auf/zu)", "zu"),
     }
-
-    local torId = frageText("Optionale Tor-ID fuer den Taschencomputer, leer nutzt Tor-Name", "")
-    if torId ~= "" then
-        cfg.tor_id = torId
-    end
-
-    local gangschaltungName = frageText("Optionaler Name der Sequenced Gearshift, leer fuer automatische Suche", "")
-    if gangschaltungName ~= "" then
-        cfg.gangschaltung_name = gangschaltungName
-    end
 
     local inhalt = "-- Automatisch durch init.lua erzeugte Konfiguration fuer diesen Tor-Computer.\n\n"
         .. "return " .. textutils.serialize(cfg) .. "\n"
