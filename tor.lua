@@ -1,181 +1,253 @@
 -- Taschencomputer-Steuerung fuer alle Tore.
--- Sucht per Rednet-Broadcast nach erreichbaren Gebaeuden/Toren und
--- erlaubt es, jedes Tor einzeln zu oeffnen/schliessen.
+-- Zeigt alle bekannten oder erreichbaren Tore direkt als Liste an.
+-- Eine Nummernauswahl loest sofort einen Zustandswechsel aus.
 
-local PROTOKOLL = "torsteuerung"
+local STANDARD_PROTOKOLL = "torsteuerung"
 local SUCH_TIMEOUT = 1.5
 local ANTWORT_TIMEOUT = 2
+local WECHSEL_TIMEOUT = 5
 
--- Modem automatisch finden (Taschencomputer haben keine festen Redstone-Seiten)
-local modemSeite = nil
-for _, name in ipairs(peripheral.getNames()) do
-    if peripheral.getType(name) == "modem" then
-        modemSeite = name
-        break
+local function ladeConfig()
+    local pfade = {
+        "Bauwerk/tor_cfg.lua",
+        "tor_cfg.lua",
+    }
+
+    for _, pfad in ipairs(pfade) do
+        if fs.exists(pfad) then
+            return dofile(pfad)
+        end
     end
+
+    return {}
 end
 
-if not modemSeite then
-    print("Kein (Wireless-)Modem gefunden. Bitte eines anlegen.")
-    return
+local config = ladeConfig()
+local PROTOKOLL = config.protokoll or STANDARD_PROTOKOLL
+local tore = {}
+
+local function oeffneModem()
+    peripheral.find("modem", rednet.open)
+
+    for _, name in ipairs(peripheral.getNames()) do
+        if peripheral.getType(name) == "modem" and rednet.isOpen(name) then
+            return
+        end
+    end
+
+    error("Kein Modem gefunden! Bitte ein Modem direkt am Taschencomputer oder im Wired Network anschliessen.")
 end
 
-if not rednet.isOpen(modemSeite) then
-    rednet.open(modemSeite)
+local function normalisiereTor(eintrag)
+    if type(eintrag) == "string" then
+        return { id = eintrag }
+    elseif type(eintrag) == "table" and eintrag.id then
+        return {
+            id = tostring(eintrag.id),
+            rednet_id = eintrag.rednet_id,
+        }
+    end
+    return nil
 end
 
--- Sucht alle aktuell erreichbaren Gebaeude/Tore
-local function sucheGebaeude()
+local function ladeBekannteTore()
+    local bekannte = {}
+
+    if type(config.tore) == "table" then
+        for _, eintrag in ipairs(config.tore) do
+            local tor = normalisiereTor(eintrag)
+            if tor then
+                table.insert(bekannte, tor)
+            end
+        end
+    end
+
+    return bekannte
+end
+
+local function findeTorIndex(liste, id)
+    for i, tor in ipairs(liste) do
+        if tor.id == id then
+            return i
+        end
+    end
+    return nil
+end
+
+local function sucheTore()
     rednet.broadcast({ typ = "ping" }, PROTOKOLL)
 
-    local gebaeude = {}
+    local gefundene = {}
     local ende = os.clock() + SUCH_TIMEOUT
 
     while true do
         local restzeit = ende - os.clock()
         if restzeit <= 0 then break end
 
-        local _, nachricht = rednet.receive(PROTOKOLL, restzeit)
-        if nachricht and type(nachricht) == "table" and nachricht.typ == "pong" then
-            gebaeude[nachricht.gebaeude] = gebaeude[nachricht.gebaeude] or {}
-
-            local schonDa = false
-            for _, eintrag in ipairs(gebaeude[nachricht.gebaeude]) do
-                if eintrag.tor == nachricht.tor then
-                    eintrag.zustand = nachricht.zustand
-                    schonDa = true
+        local senderId, nachricht = rednet.receive(PROTOKOLL, restzeit)
+        if type(nachricht) == "table" and nachricht.typ == "pong" then
+            local id = nachricht.tor_id or nachricht.tor
+            if id then
+                id = tostring(id)
+                local index = findeTorIndex(gefundene, id)
+                if index then
+                    gefundene[index].rednet_id = senderId
+                else
+                    table.insert(gefundene, {
+                        id = id,
+                        rednet_id = senderId,
+                    })
                 end
             end
-            if not schonDa then
-                table.insert(gebaeude[nachricht.gebaeude], {
-                    tor = nachricht.tor,
-                    zustand = nachricht.zustand,
-                })
+        end
+    end
+
+    table.sort(gefundene, function(a, b)
+        return a.id < b.id
+    end)
+
+    return gefundene
+end
+
+local function ladeOderSucheTore()
+    local bekannte = ladeBekannteTore()
+    if #bekannte > 0 then
+        return bekannte
+    end
+    return sucheTore()
+end
+
+local function sendeAnTor(tor, nachricht)
+    if tor.rednet_id then
+        rednet.send(tor.rednet_id, nachricht, PROTOKOLL)
+    else
+        rednet.broadcast(nachricht, PROTOKOLL)
+    end
+end
+
+local function empfangeAntwort(tor, typ, timeout)
+    local ende = os.clock() + timeout
+
+    while true do
+        local restzeit = ende - os.clock()
+        if restzeit <= 0 then break end
+
+        local senderId, nachricht = rednet.receive(PROTOKOLL, restzeit)
+        if type(nachricht) == "table"
+            and nachricht.typ == typ
+            and tostring(nachricht.tor_id or "") == tor.id then
+            if not tor.rednet_id then
+                tor.rednet_id = senderId
+            end
+            return nachricht
+        end
+    end
+
+    return nil
+end
+
+local function pruefeZustand(zustand)
+    if zustand == "auf" or zustand == "zu" then
+        return zustand
+    elseif zustand == nil then
+        return "unbekannt"
+    end
+    return "ungueltig"
+end
+
+local function frageZustand(tor)
+    sendeAnTor(tor, {
+        typ = "tor_status_anfrage",
+        tor_id = tor.id,
+    })
+
+    local antwort = empfangeAntwort(tor, "tor_status_antwort", ANTWORT_TIMEOUT)
+    if not antwort or not antwort.ok then
+        return "unbekannt"
+    end
+
+    return pruefeZustand(antwort.zustand)
+end
+
+local function aktualisiereZustaende()
+    tore = ladeOderSucheTore()
+
+    for _, tor in ipairs(tore) do
+        tor.zustand = frageZustand(tor)
+    end
+end
+
+local function zeichneListe()
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    print("=== Torsteuerung ===")
+    print("")
+
+    if #tore == 0 then
+        print("Keine Tore gefunden.")
+    else
+        for i, tor in ipairs(tore) do
+            print(i .. ") " .. tostring(tor.id) .. " [" .. tostring(tor.zustand or "unbekannt") .. "]")
+        end
+    end
+
+    print("")
+    print("r) aktualisieren")
+    print("q) beenden")
+    print("")
+    write("Auswahl: ")
+end
+
+local function wechsleTor(tor)
+    sendeAnTor(tor, {
+        typ = "tor_wechsel",
+        tor_id = tor.id,
+    })
+
+    local antwort = empfangeAntwort(tor, "tor_wechsel_antwort", WECHSEL_TIMEOUT)
+    if not antwort then
+        print("Keine Antwort von Tor " .. tostring(tor.id))
+        sleep(1.5)
+        return
+    end
+
+    if not antwort.ok then
+        print("Tor " .. tostring(tor.id) .. ": Wechsel fehlgeschlagen: " .. tostring(antwort.fehler))
+        sleep(2)
+        return
+    end
+
+    local vorher = pruefeZustand(antwort.vorher)
+    local nachher = pruefeZustand(antwort.nachher)
+    print("Tor " .. tostring(tor.id) .. ": " .. vorher .. " -> " .. nachher)
+    tor.zustand = nachher
+    sleep(1.5)
+end
+
+local function loop()
+    aktualisiereZustaende()
+
+    while true do
+        zeichneListe()
+
+        local eingabe = read()
+        if eingabe == "q" then
+            return
+        elseif eingabe == "r" or eingabe == "a" then
+            aktualisiereZustaende()
+        else
+            local index = tonumber(eingabe)
+            if index and tore[index] then
+                wechsleTor(tore[index])
+                aktualisiereZustaende()
+            else
+                print("Ungueltige Auswahl")
+                sleep(1)
             end
         end
     end
-
-    return gebaeude
 end
 
--- Sendet einen Befehl (auf/zu) an ein bestimmtes Tor und wartet auf Status
-local function sendeBefehl(gebaeudeName, torName, aktion)
-    rednet.broadcast({
-        typ = "befehl",
-        gebaeude = gebaeudeName,
-        tor = torName,
-        aktion = aktion,
-    }, PROTOKOLL)
-
-    local ende = os.clock() + ANTWORT_TIMEOUT
-    while true do
-        local restzeit = ende - os.clock()
-        if restzeit <= 0 then break end
-
-        local _, antwort = rednet.receive(PROTOKOLL, restzeit)
-        if antwort and antwort.typ == "status"
-           and antwort.gebaeude == gebaeudeName and antwort.tor == torName then
-            return antwort.zustand
-        end
-    end
-    return nil
-end
-
--- Fragt den aktuellen Status eines Tores ab
-local function frageStatusAb(gebaeudeName, torName)
-    rednet.broadcast({ typ = "status_abfrage", gebaeude = gebaeudeName, tor = torName }, PROTOKOLL)
-
-    local ende = os.clock() + ANTWORT_TIMEOUT
-    while true do
-        local restzeit = ende - os.clock()
-        if restzeit <= 0 then break end
-
-        local _, antwort = rednet.receive(PROTOKOLL, restzeit)
-        if antwort and antwort.typ == "status"
-           and antwort.gebaeude == gebaeudeName and antwort.tor == torName then
-            return antwort.zustand
-        end
-    end
-    return nil
-end
-
--- Einfaches Zahlen-Menue
-local function menuAuswahl(titel, optionen)
-    while true do
-        term.clear()
-        term.setCursorPos(1, 1)
-        print(titel)
-        print(string.rep("-", #titel))
-        for i, text in ipairs(optionen) do
-            print(i .. ") " .. text)
-        end
-        print("0) Zurueck")
-        write("> ")
-
-        local eingabe = tonumber(read())
-        if eingabe == 0 then
-            return nil
-        elseif eingabe and optionen[eingabe] then
-            return eingabe
-        end
-    end
-end
-
-local function torMenu(gebaeudeName, tor)
-    while true do
-        local auswahl = menuAuswahl(
-            gebaeudeName .. " - Tor " .. tor.tor .. " (" .. (tor.zustand or "?") .. ")",
-            { "Oeffnen", "Schliessen", "Status aktualisieren" }
-        )
-        if not auswahl then
-            return
-        elseif auswahl == 1 then
-            tor.zustand = sendeBefehl(gebaeudeName, tor.tor, "auf") or tor.zustand
-        elseif auswahl == 2 then
-            tor.zustand = sendeBefehl(gebaeudeName, tor.tor, "zu") or tor.zustand
-        elseif auswahl == 3 then
-            tor.zustand = frageStatusAb(gebaeudeName, tor.tor) or tor.zustand
-        end
-    end
-end
-
-local function gebaeudeMenu(name, tore)
-    while true do
-        local namen = {}
-        for _, tor in ipairs(tore) do
-            table.insert(namen, tor.tor .. " (" .. (tor.zustand or "?") .. ")")
-        end
-
-        local auswahl = menuAuswahl(name, namen)
-        if not auswahl then
-            return
-        end
-        torMenu(name, tore[auswahl])
-    end
-end
-
--- Hauptschleife: staendig neu suchen und Menue anzeigen
-while true do
-    term.clear()
-    term.setCursorPos(1, 1)
-    print("Suche erreichbare Gebaeude ...")
-
-    local gebaeude = sucheGebaeude()
-
-    local namen = {}
-    for name, _ in pairs(gebaeude) do
-        table.insert(namen, name)
-    end
-    table.sort(namen)
-
-    if #namen == 0 then
-        print("Keine Gebaeude in Reichweite gefunden.")
-        print("(Neuer Versuch in 2 Sekunden, Abbruch mit Strg+T)")
-        sleep(2)
-    else
-        local auswahl = menuAuswahl("Erreichbare Gebaeude", namen)
-        if auswahl then
-            gebaeudeMenu(namen[auswahl], gebaeude[namen[auswahl]])
-        end
-    end
-end
+oeffneModem()
+loop()

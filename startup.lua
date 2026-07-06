@@ -9,6 +9,8 @@
 local cfg = dofile("cfg.lua")
 
 local PROTOKOLL = "torsteuerung"
+local TOR_ID = tostring(cfg.tor_id or cfg.tor or "tor")
+local ZUSTAND_DATEI = cfg.zustand_datei or ".tor_zustand"
 
 peripheral.find("modem", rednet.open)
 
@@ -65,7 +67,39 @@ local function findeGangschaltung()
 end
 
 local gangschaltung, gangschaltungName = findeGangschaltung()
-local zustand = "zu" -- Startannahme: Tor ist beim Hochfahren geschlossen
+
+local function istGueltigerZustand(wert)
+    return wert == "auf" or wert == "zu"
+end
+
+local function ladeZustand()
+    if fs.exists(ZUSTAND_DATEI) then
+        local datei = fs.open(ZUSTAND_DATEI, "r")
+        if datei then
+            local wert = datei.readAll()
+            datei.close()
+            if istGueltigerZustand(wert) then
+                return wert
+            end
+        end
+    end
+    return "zu"
+end
+
+local function speichereZustand(neuerZustand)
+    if not istGueltigerZustand(neuerZustand) then
+        return
+    end
+
+    local datei = fs.open(ZUSTAND_DATEI, "w")
+    if not datei then
+        error("Konnte Zustand nicht speichern: " .. tostring(ZUSTAND_DATEI))
+    end
+    datei.write(neuerZustand)
+    datei.close()
+end
+
+local zustand = ladeZustand()
 
 -- Wartet, bis die Gangschaltung ihre aktuelle Drehung abgeschlossen hat
 local function wartenAufAbschluss(maxSekunden)
@@ -79,6 +113,7 @@ local function oeffnen()
     gangschaltung.rotate(cfg.winkel_auf)       -- vorwaerts um winkel_auf Grad
     wartenAufAbschluss()
     zustand = "auf"
+    speichereZustand(zustand)
     print("Tor " .. tostring(cfg.tor) .. " geoeffnet (" .. tostring(cfg.winkel_auf) .. " Grad)")
 end
 
@@ -86,7 +121,18 @@ local function schliessen()
     gangschaltung.rotate(cfg.winkel_zu, -1)    -- rueckwaerts um winkel_zu Grad
     wartenAufAbschluss()
     zustand = "zu"
+    speichereZustand(zustand)
     print("Tor " .. tostring(cfg.tor) .. " geschlossen (" .. tostring(cfg.winkel_zu) .. " Grad)")
+end
+
+local function wechseln()
+    local vorher = zustand
+    if zustand == "auf" then
+        schliessen()
+    else
+        oeffnen()
+    end
+    return vorher, zustand
 end
 
 local function sendeStatus(anId)
@@ -94,12 +140,42 @@ local function sendeStatus(anId)
         typ = "status",
         gebaeude = cfg.gebaeude,
         tor = cfg.tor,
+        tor_id = TOR_ID,
         zustand = zustand,
     }, PROTOKOLL)
 end
 
+local function sendeTorStatusAntwort(anId, ok, fehler)
+    rednet.send(anId, {
+        typ = "tor_status_antwort",
+        tor_id = TOR_ID,
+        ok = ok,
+        zustand = ok and zustand or nil,
+        fehler = fehler,
+    }, PROTOKOLL)
+end
+
+local function sendeTorWechselAntwort(anId, ok, vorher, nachher, fehler)
+    rednet.send(anId, {
+        typ = "tor_wechsel_antwort",
+        tor_id = TOR_ID,
+        ok = ok,
+        vorher = vorher,
+        nachher = nachher,
+        fehler = fehler,
+    }, PROTOKOLL)
+end
+
+local function istFuerDiesesTor(nachricht)
+    if nachricht.tor_id ~= nil then
+        return tostring(nachricht.tor_id) == tostring(TOR_ID)
+    end
+
+    return nachricht.gebaeude == cfg.gebaeude and nachricht.tor == cfg.tor
+end
+
 print("Gangschaltung gefunden: " .. tostring(gangschaltungName))
-print("Torsteuerung bereit: " .. tostring(cfg.gebaeude) .. " / " .. tostring(cfg.tor))
+print("Torsteuerung bereit: " .. tostring(cfg.gebaeude) .. " / " .. tostring(cfg.tor) .. " (" .. tostring(TOR_ID) .. ")")
 
 while true do
     local absenderId, nachricht = rednet.receive(PROTOKOLL)
@@ -111,18 +187,23 @@ while true do
                 typ = "pong",
                 gebaeude = cfg.gebaeude,
                 tor = cfg.tor,
+                tor_id = TOR_ID,
                 zustand = zustand,
             }, PROTOKOLL)
 
-        elseif nachricht.gebaeude == cfg.gebaeude and nachricht.tor == cfg.tor then
+        elseif istFuerDiesesTor(nachricht) then
             -- Nachricht ist eindeutig an DIESES Tor gerichtet
-            if nachricht.typ == "befehl" then
-                if nachricht.aktion == "auf" then
-                    oeffnen()
-                elseif nachricht.aktion == "zu" then
-                    schliessen()
+            if nachricht.typ == "tor_status_anfrage" then
+                sendeTorStatusAntwort(absenderId, true)
+
+            elseif nachricht.typ == "tor_wechsel" then
+                local ok, vorher, nachher = pcall(wechseln)
+                if ok then
+                    sendeTorWechselAntwort(absenderId, true, vorher, nachher)
+                else
+                    sendeTorWechselAntwort(absenderId, false, nil, nil, vorher)
                 end
-                sendeStatus(absenderId)
+
             elseif nachricht.typ == "status_abfrage" then
                 sendeStatus(absenderId)
             end

@@ -3,7 +3,7 @@
 Rednet-basierte Torsteuerung fuer Create/ComputerCraft:
 
 - `Tor-Steuercomputer`: steuert genau ein Tor ueber eine Sequenced Gearshift.
-- `Taschencomputer`: sucht erreichbare Tore und kann sie oeffnen, schliessen und abfragen.
+- `Taschencomputer`: zeigt erreichbare Tore direkt als Liste und schaltet ein Tor per Nummernauswahl um.
 
 ## Installation
 
@@ -40,6 +40,7 @@ Dabei wird `startup.lua` installiert und die lokale `cfg.lua` direkt abgefragt u
 - Tor-Name/Kuerzel
 - Winkel zum Oeffnen
 - Winkel zum Schliessen
+- Optionale Tor-ID fuer den Taschencomputer
 - Optionaler Name der Sequenced Gearshift
 
 Nach einem Neustart startet die Torsteuerung automatisch ueber `startup.lua`.
@@ -59,11 +60,14 @@ Optionale Gearshift-Auswahl in `cfg.lua`:
 return {
     gebaeude = "Zugfabrik1",
     tor = "VR",
+    tor_id = "789,-968",
     winkel_auf = 90,
     winkel_zu = 90,
     gangschaltung_name = "right",
 }
 ```
+
+Der Zustand des Tores wird auf dem Tor-Steuercomputer verwaltet und lokal gespeichert. Der Taschencomputer zeigt nur den Zustand an, den der Tor-Steuercomputer meldet.
 
 ## Taschencomputer
 
@@ -81,7 +85,55 @@ Start:
 Bauwerk/tor.lua
 ```
 
-Der Taschencomputer sucht per Rednet nach erreichbaren Tor-Steuercomputern und zeigt die gefundenen Gebaeude und Tore als Menue an.
+Der Taschencomputer sucht per Rednet nach erreichbaren Tor-Steuercomputern und zeigt alle Tore direkt mit Zustand an:
+
+```text
+=== Torsteuerung ===
+
+1) 789,-968 [zu]
+2) 800,-970 [auf]
+3) minekolonie_west [unbekannt]
+
+r) aktualisieren
+q) beenden
+
+Auswahl:
+```
+
+Befehle:
+
+- Nummer: Tor direkt wechseln
+- `r`: Liste und Zustaende aktualisieren
+- `q`: Programm beenden
+
+Es gibt kein Untermenue pro Tor mehr. Der Taschencomputer sendet keine Zielzustaende, keine Winkel und keine freien `auf`-/`zu`-Befehle.
+
+Optional kann der Taschencomputer feste Tore aus `Bauwerk/tor_cfg.lua` laden:
+
+```lua
+return {
+    protokoll = "torsteuerung",
+
+    tore = {
+        "789,-968",
+        "800,-970",
+        "minekolonie_west",
+    },
+}
+```
+
+Falls Rednet-IDs fest bekannt sind:
+
+```lua
+return {
+    protokoll = "torsteuerung",
+
+    tore = {
+        { id = "789,-968", rednet_id = 12 },
+        { id = "800,-970", rednet_id = 15 },
+    },
+}
+```
 
 ## Dateien
 

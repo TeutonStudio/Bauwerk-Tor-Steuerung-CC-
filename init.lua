@@ -103,6 +103,11 @@ local function schreibeConfig()
         winkel_zu = frageZahl("Winkel zum Schliessen", 90),
     }
 
+    local torId = frageText("Optionale Tor-ID fuer den Taschencomputer, leer nutzt Tor-Name", "")
+    if torId ~= "" then
+        cfg.tor_id = torId
+    end
+
     local gangschaltungName = frageText("Optionaler Name der Sequenced Gearshift, leer fuer automatische Suche", "")
     if gangschaltungName ~= "" then
         cfg.gangschaltung_name = gangschaltungName
