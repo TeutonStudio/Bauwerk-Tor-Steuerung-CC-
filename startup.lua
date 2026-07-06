@@ -8,22 +8,63 @@
 
 local cfg = dofile("cfg.lua")
 
-local MODEM_SEITE = "top"
 local PROTOKOLL = "torsteuerung"
 
-if peripheral.getType(MODEM_SEITE) ~= "modem" then
-    error("Auf Seite '" .. MODEM_SEITE .. "' wurde kein Modem gefunden!")
+peripheral.find("modem", rednet.open)
+
+local function istRednetOffen()
+    for _, name in ipairs(peripheral.getNames()) do
+        if peripheral.getType(name) == "modem" and rednet.isOpen(name) then
+            return true
+        end
+    end
+    return false
 end
 
-if not rednet.isOpen(MODEM_SEITE) then
-    rednet.open(MODEM_SEITE)
+if not istRednetOffen() then
+    error("Kein Modem gefunden! Bitte ein Modem direkt am Computer oder im Wired Network anschliessen.")
 end
 
-local gangschaltung = peripheral.wrap(cfg.gangschaltung_seite)
-if not gangschaltung then
-    error("Auf '" .. cfg.gangschaltung_seite .. "' wurde keine Sequenced Gearshift gefunden!")
+local function istGangschaltung(peripherie)
+    return type(peripherie) == "table"
+        and type(peripherie.rotate) == "function"
+        and type(peripherie.isRunning) == "function"
 end
 
+local function findeGangschaltung()
+    if cfg.gangschaltung_name and cfg.gangschaltung_name ~= "" then
+        local peripherie = peripheral.wrap(cfg.gangschaltung_name)
+        if not peripherie then
+            error("Konfigurierte Sequenced Gearshift '" .. tostring(cfg.gangschaltung_name) .. "' wurde nicht gefunden!")
+        end
+        if not istGangschaltung(peripherie) then
+            error("Konfigurierte Sequenced Gearshift '" .. tostring(cfg.gangschaltung_name) .. "' besitzt nicht rotate() und isRunning()!")
+        end
+        return peripherie, cfg.gangschaltung_name
+    end
+
+    local gefundene = {}
+    for _, name in ipairs(peripheral.getNames()) do
+        local peripherie = peripheral.wrap(name)
+        if istGangschaltung(peripherie) then
+            table.insert(gefundene, { name = name, peripherie = peripherie })
+        end
+    end
+
+    if #gefundene == 0 then
+        error("Keine Sequenced Gearshift gefunden! Erwartet Peripheral mit rotate() und isRunning().")
+    elseif #gefundene > 1 then
+        print("Mehrere passende Sequenced Gearshifts gefunden:")
+        for _, eintrag in ipairs(gefundene) do
+            print("- " .. tostring(eintrag.name))
+        end
+        error("Bitte gangschaltung_name in cfg.lua auf den gewuenschten Peripheral-Namen setzen.")
+    end
+
+    return gefundene[1].peripherie, gefundene[1].name
+end
+
+local gangschaltung, gangschaltungName = findeGangschaltung()
 local zustand = "zu" -- Startannahme: Tor ist beim Hochfahren geschlossen
 
 -- Wartet, bis die Gangschaltung ihre aktuelle Drehung abgeschlossen hat
@@ -38,14 +79,14 @@ local function oeffnen()
     gangschaltung.rotate(cfg.winkel_auf)       -- vorwaerts um winkel_auf Grad
     wartenAufAbschluss()
     zustand = "auf"
-    print("Tor " .. cfg.tor .. " geoeffnet (" .. cfg.winkel_auf .. " Grad)")
+    print("Tor " .. tostring(cfg.tor) .. " geoeffnet (" .. tostring(cfg.winkel_auf) .. " Grad)")
 end
 
 local function schliessen()
     gangschaltung.rotate(cfg.winkel_zu, -1)    -- rueckwaerts um winkel_zu Grad
     wartenAufAbschluss()
     zustand = "zu"
-    print("Tor " .. cfg.tor .. " geschlossen (" .. cfg.winkel_zu .. " Grad)")
+    print("Tor " .. tostring(cfg.tor) .. " geschlossen (" .. tostring(cfg.winkel_zu) .. " Grad)")
 end
 
 local function sendeStatus(anId)
@@ -57,7 +98,8 @@ local function sendeStatus(anId)
     }, PROTOKOLL)
 end
 
-print("Torsteuerung bereit: " .. cfg.gebaeude .. " / " .. cfg.tor)
+print("Gangschaltung gefunden: " .. tostring(gangschaltungName))
+print("Torsteuerung bereit: " .. tostring(cfg.gebaeude) .. " / " .. tostring(cfg.tor))
 
 while true do
     local absenderId, nachricht = rednet.receive(PROTOKOLL)

@@ -9,10 +9,11 @@ Rednet-basierte Torsteuerung fuer Create/ComputerCraft:
 
 Voraussetzung: HTTP muss in der ComputerCraft/CC:Tweaked-Konfiguration aktiviert sein.
 
-Auf dem Computer oder Taschencomputer in CC:Tweaked den Initialiser herunterladen und ausführen:
+Auf dem Computer oder Taschencomputer in CC:Tweaked den Initialiser herunterladen und ausfuehren:
 
 ```lua
-wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua
+wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua init.lua
+init.lua
 ```
 
 Der Installer fragt, was installiert werden soll:
@@ -37,16 +38,32 @@ Dabei wird `startup.lua` installiert und die lokale `cfg.lua` direkt abgefragt u
 
 - Gebaeude
 - Tor-Name/Kuerzel
-- Seite oder Name der Sequenced Gearshift
 - Winkel zum Oeffnen
 - Winkel zum Schliessen
+- Optionaler Name der Sequenced Gearshift
 
 Nach einem Neustart startet die Torsteuerung automatisch ueber `startup.lua`.
 
+Das Modem wird automatisch gefunden und fuer Rednet geoeffnet. Eine feste Modem-Seite ist nicht noetig.
+
+Die Sequenced Gearshift wird automatisch gesucht. Akzeptiert wird ein Peripheral, das die Methoden `rotate()` und `isRunning()` besitzt. Eine feste Seite ist nicht noetig.
+
 Voraussetzungen:
 
-- Wireless Modem auf Seite `top`
-- Sequenced Gearshift an der angegebenen Seite oder mit dem angegebenen Peripherie-Namen
+- Mindestens ein Modem am Computer oder im Wired Network.
+- Genau eine passende Sequenced Gearshift oder optional `gangschaltung_name` in `cfg.lua` bei mehreren passenden Peripherals.
+
+Optionale Gearshift-Auswahl in `cfg.lua`:
+
+```lua
+return {
+    gebaeude = "Zugfabrik1",
+    tor = "VR",
+    winkel_auf = 90,
+    winkel_zu = 90,
+    gangschaltung_name = "right",
+}
+```
 
 ## Taschencomputer
 

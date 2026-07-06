@@ -99,10 +99,14 @@ local function schreibeConfig()
     local cfg = {
         gebaeude = frageText("Gebaeude", "Zugfabrik1"),
         tor = frageText("Tor-Name/Kuerzel", "VR"),
-        gangschaltung_seite = frageText("Seite/Name der Sequenced Gearshift", "front"),
         winkel_auf = frageZahl("Winkel zum Oeffnen", 90),
         winkel_zu = frageZahl("Winkel zum Schliessen", 90),
     }
+
+    local gangschaltungName = frageText("Optionaler Name der Sequenced Gearshift, leer fuer automatische Suche", "")
+    if gangschaltungName ~= "" then
+        cfg.gangschaltung_name = gangschaltungName
+    end
 
     local inhalt = "-- Automatisch durch init.lua erzeugte Konfiguration fuer diesen Tor-Computer.\n\n"
         .. "return " .. textutils.serialize(cfg) .. "\n"
