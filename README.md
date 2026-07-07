@@ -13,6 +13,7 @@ Auf dem Taschencomputer den Initialiser herunterladen und ausführen:
 
 ```lua
 wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua
+```
 
 Der Installer fragt, was installiert werden soll:
 
