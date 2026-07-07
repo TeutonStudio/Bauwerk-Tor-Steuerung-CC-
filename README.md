@@ -2,18 +2,19 @@
 
 Rednet-basierte Torsteuerung fuer Create/ComputerCraft:
 
-- `Tor-Steuercomputer`: steuert genau ein Tor ueber eine Sequenced Gearshift.
-- `Taschencomputer`: zeigt zuerst Gebaeude, dann die Tore des Gebaeudes, und schaltet ein Tor per Nummernauswahl um.
+- `Tor-Steuercomputer`: steuert genau ein Tor über eine Sequentielle Gangschaltung.
+- `Taschencomputer`: zeigt zuerst Gebäude, dann die Tore des Gebäudes, und schaltet ein Tor per Nummernauswahl um.
 
 ## Installation
 
 Voraussetzung: HTTP muss in der ComputerCraft/CC:Tweaked-Konfiguration aktiviert sein.
 
-Auf dem Computer oder Taschencomputer in CC:Tweaked den Initialiser herunterladen und ausfuehren:
+Auf dem Taschencomputer den Initialiser herunterladen und ausführen:
 
 ```lua
-wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua
+wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua alias.lua
 ```
+-- alias.lua weglassen falls keine umbennung nötig ist
 
 Der Installer fragt, was installiert werden soll:
 
@@ -23,7 +24,7 @@ Der Installer fragt, was installiert werden soll:
 0) Abbrechen
 ```
 
-Nach der Installation loescht sich `init.lua` automatisch.
+Nach der Installation löscht sich `init.lua` automatisch.
 
 ## Tor-Steuercomputer
 
@@ -35,21 +36,21 @@ Waehle im Installer:
 
 Dabei wird `startup.lua` installiert und die lokale `cfg.lua` direkt abgefragt und gespeichert:
 
-- Gebaeude
+- Gebäude
 - Tor-Name/Kuerzel
 - Winkel zum Oeffnen
 - Initialer Zustand (`auf` oder `zu`)
 
-Nach einem Neustart startet die Torsteuerung automatisch ueber `startup.lua`.
+Nach einem Neustart startet die Torsteuerung automatisch über `startup.lua`.
 
-Das Modem wird automatisch gefunden und fuer Rednet geoeffnet. Eine feste Modem-Seite ist nicht noetig.
+Das Modem wird automatisch gefunden und für Rednet geoeffnet. Eine feste Modem-Seite ist nicht nötig.
 
-Die Sequenced Gearshift wird automatisch gesucht. Akzeptiert wird ein Peripheral, das die Methoden `rotate()` und `isRunning()` besitzt. Eine feste Seite ist nicht noetig.
+Die Sequentielle Gangschaltung wird automatisch gesucht. Akzeptiert wird ein Peripheral, das die Methoden `rotate()` und `isRunning()` besitzt. Eine feste Seite ist nicht nötig.
 
 Voraussetzungen:
 
 - Mindestens ein Modem am Computer oder im Wired Network.
-- Genau eine passende Sequenced Gearshift.
+- Genau eine passende Sequentielle Gangschaltung.
 
 Beispiel fuer `cfg.lua`:
 
@@ -57,12 +58,12 @@ Beispiel fuer `cfg.lua`:
 return {
     gebaeude = "Zugfabrik1",
     tor = "VR",
-    winkel_auf = 90,
+    winkel = 90,
     initZustand = "zu",
 }
 ```
 
-Zum Schliessen wird automatisch `-winkel_auf` verwendet. Es gibt keinen separaten Schliesswinkel.
+Zum Schliessen wird derselbe positive `winkel` mit negativem Sequenced-Gearshift-Modifier verwendet: `rotate(winkel, -1)`. Es gibt keinen separaten Schliesswinkel.
 
 Der Zustand des Tores wird auf dem Tor-Steuercomputer verwaltet und lokal gespeichert. Der Taschencomputer zeigt nur den Zustand an, den der Tor-Steuercomputer meldet.
 
@@ -122,52 +123,7 @@ Befehle:
 
 Es gibt kein Untermenue pro Tor. Der Taschencomputer sendet keine Zielzustaende, keine Winkel und keine freien `auf`-/`zu`-Befehle.
 
-Optional kann der Taschencomputer feste Gebaeude und Tore aus `Bauwerk/tor_cfg.lua` laden:
-
-```lua
-return {
-    protokoll = "torsteuerung",
-
-    gebaeude = {
-        {
-            id = "rathaus",
-            name = "Rathaus",
-            tore = {
-                { id = "rathaus_nord", name = "Eingang Nord" },
-                { id = "rathaus_sued", name = "Eingang Sued" },
-                { id = "rathaus_keller", name = "Kellerzugang" },
-            },
-        },
-        {
-            id = "bahnhof_sued",
-            name = "Bahnhof Sued",
-            tore = {
-                { id = "bahnhof_sued_tor_1", name = "Tor 1" },
-                { id = "bahnhof_sued_tor_2", name = "Tor 2" },
-            },
-        },
-    },
-}
-```
-
-Falls Rednet-IDs fest bekannt sind:
-
-```lua
-return {
-    protokoll = "torsteuerung",
-
-    gebaeude = {
-        {
-            id = "rathaus",
-            name = "Rathaus",
-            tore = {
-                { id = "rathaus_nord", name = "Eingang Nord", rednet_id = 12 },
-                { id = "rathaus_sued", name = "Eingang Sued", rednet_id = 15 },
-            },
-        },
-    },
-}
-```
+Der Taschencomputer nutzt keine lokale Config. Gebaeude und Tore werden ausschliesslich per Rednet-Discovery gefunden.
 
 ## Dateien
 

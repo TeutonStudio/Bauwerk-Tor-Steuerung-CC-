@@ -1,28 +1,11 @@
 -- Taschencomputer-Steuerung fuer Tore.
--- Erst Gebaeude auswaehlen, dann ein Tor im Gebaeude direkt wechseln.
+-- Sucht Tore per Rednet, zeigt erst Gebaeude und wechselt dann ein Tor direkt.
 
-local STANDARD_PROTOKOLL = "torsteuerung"
+local PROTOKOLL = "torsteuerung"
 local SUCH_TIMEOUT = 1.5
 local ANTWORT_TIMEOUT = 2
 local WECHSEL_TIMEOUT = 5
 
-local function ladeConfig()
-    local pfade = {
-        "Bauwerk/tor_cfg.lua",
-        "tor_cfg.lua",
-    }
-
-    for _, pfad in ipairs(pfade) do
-        if fs.exists(pfad) then
-            return dofile(pfad)
-        end
-    end
-
-    return {}
-end
-
-local config = ladeConfig()
-local PROTOKOLL = config.protokoll or STANDARD_PROTOKOLL
 local gebaeudeListe = {}
 
 local function oeffneModem()
@@ -35,86 +18,6 @@ local function oeffneModem()
     end
 
     error("Kein Modem gefunden! Bitte ein Modem direkt am Taschencomputer oder im Wired Network anschliessen.")
-end
-
-local function normalisiereTor(eintrag)
-    if type(eintrag) == "string" then
-        return {
-            id = eintrag,
-            name = eintrag,
-        }
-    elseif type(eintrag) == "table" and eintrag.id then
-        return {
-            id = tostring(eintrag.id),
-            name = eintrag.name and tostring(eintrag.name) or tostring(eintrag.id),
-            rednet_id = eintrag.rednet_id,
-        }
-    end
-    return nil
-end
-
-local function normalisiereGebaeude(eintrag)
-    if type(eintrag) ~= "table" then
-        return nil
-    end
-
-    local id = tostring(eintrag.id or eintrag.name or "gebaeude")
-    local gebaeude = {
-        id = id,
-        name = eintrag.name and tostring(eintrag.name) or id,
-        tore = {},
-    }
-
-    if type(eintrag.tore) == "table" then
-        for _, torEintrag in ipairs(eintrag.tore) do
-            local tor = normalisiereTor(torEintrag)
-            if tor then
-                table.insert(gebaeude.tore, tor)
-            end
-        end
-    end
-
-    return gebaeude
-end
-
-local function ladeKonfigurierteGebaeude()
-    local liste = {}
-
-    if type(config.gebaeude) == "table" then
-        for _, eintrag in ipairs(config.gebaeude) do
-            local gebaeude = normalisiereGebaeude(eintrag)
-            if gebaeude then
-                table.insert(liste, gebaeude)
-            end
-        end
-    end
-
-    return liste
-end
-
-local function ladeAlteTorConfigAlsGebaeude()
-    local tore = {}
-
-    if type(config.tore) == "table" then
-        for _, eintrag in ipairs(config.tore) do
-            local tor = normalisiereTor(eintrag)
-            if tor then
-                table.insert(tore, tor)
-            end
-        end
-    end
-
-    if #tore == 0 then
-        return {}
-    end
-
-    return {
-        {
-            id = "alle",
-            name = "Alle Tore",
-            tore = tore,
-        },
-    }
 end
 
 local function findeGebaeudeIndex(liste, id)
@@ -204,20 +107,6 @@ local function sucheGebaeude()
     return gefundene
 end
 
-local function ladeOderSucheGebaeude()
-    local konfigurierte = ladeKonfigurierteGebaeude()
-    if #konfigurierte > 0 then
-        return konfigurierte
-    end
-
-    local alteConfig = ladeAlteTorConfigAlsGebaeude()
-    if #alteConfig > 0 then
-        return alteConfig
-    end
-
-    return sucheGebaeude()
-end
-
 local function sendeAnTor(tor, nachricht)
     if tor.rednet_id then
         rednet.send(tor.rednet_id, nachricht, PROTOKOLL)
@@ -277,7 +166,7 @@ local function aktualisiereGebaeude(gebaeude)
 end
 
 local function aktualisiereAlleGebaeude()
-    gebaeudeListe = ladeOderSucheGebaeude()
+    gebaeudeListe = sucheGebaeude()
 
     for _, gebaeude in ipairs(gebaeudeListe) do
         aktualisiereGebaeude(gebaeude)
