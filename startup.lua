@@ -128,7 +128,7 @@ local function oeffnen()
 end
 
 local function schliessen()
-    gangschaltung.rotate(WINKEL, cfg.richtungsKorrektur and -1 or 1)        -- rueckwaerts um WINKEL Grad
+    gangschaltung.rotate(WINKEL, cfg.richtungsKorrektur and 1 or -1)        -- rueckwaerts um WINKEL Grad
     wartenAufAbschluss()
     zustand = "zu"
     speichereZustand(zustand)
