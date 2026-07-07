@@ -111,6 +111,7 @@ local function schreibeConfig()
         tor = frageText("Tor-Name/Kuerzel", "VR"),
         winkel = frageZahl("Winkel zum Oeffnen", 90),
         initZustand = frageZustand("Initialer Zustand (auf/zu)", "zu"),
+        richtungsKorrektur = false,
     }
 
     local inhalt = "-- Automatisch durch init.lua erzeugte Konfiguration fuer diesen Tor-Computer.\n\n"

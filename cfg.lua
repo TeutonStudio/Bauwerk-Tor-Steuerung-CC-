@@ -7,4 +7,5 @@ return {
     tor = "VR",              -- Name/Kuerzel dieses einzelnen Tores innerhalb des Gebaeudes
     winkel = 90,         -- Grad, um die zum OEFFNEN gedreht wird
     initZustand = "zu",      -- Zustand beim ersten Start: "auf" oder "zu"
+    richtungsKorrektur = false, -- true: Gangschaltung dreht in die entgegengesetzte Richtung (z.B. bei umgedrehtem Motor)
 }
