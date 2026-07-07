@@ -12,9 +12,7 @@ Voraussetzung: HTTP muss in der ComputerCraft/CC:Tweaked-Konfiguration aktiviert
 Auf dem Taschencomputer den Initialiser herunterladen und ausführen:
 
 ```lua
-wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua alias.lua
-```
--- alias.lua weglassen falls keine umbennung nötig ist
+wget https://raw.githubusercontent.com/TeutonStudio/Bauwerk-Tor-Steuerung-CC-/master/init.lua
 
 Der Installer fragt, was installiert werden soll:
 

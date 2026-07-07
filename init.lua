@@ -109,7 +109,7 @@ local function schreibeConfig()
     local cfg = {
         gebaeude = frageText("Gebaeude", "Zugfabrik1"),
         tor = frageText("Tor-Name/Kuerzel", "VR"),
-        winkel_auf = frageZahl("Winkel zum Oeffnen", 90),
+        winkel = frageZahl("Winkel zum Oeffnen", 90),
         initZustand = frageZustand("Initialer Zustand (auf/zu)", "zu"),
     }
 
